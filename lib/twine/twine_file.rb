@@ -74,6 +74,47 @@ module Twine
       return match[1] if match
     end
 
+    def write_value_for_lang(definition, f, section, used_definition)
+      @language_codes[0..-1].sort.each do |lang|
+        value = get_value(definition, lang, f)
+        if value != nil && value.include?("@string/")
+          used_definition = process_value_with_reference(definition, value, lang, f, section)
+          value = get_value(used_definition, lang, f)
+        end
+
+        if !value && !used_definition.reference_key
+          Twine::stdout.puts "WARNING: #{used_definition.key} does not exist in developer language '#{lang}'"
+        end
+
+        if used_definition.reference_key
+          f.puts "\t\tref = #{used_definition.reference_key}"
+        end
+        if used_definition.tags && used_definition.tags.length > 0
+          tag_str = used_definition.tags.join(',')
+          f.puts "\t\ttags = #{tag_str}"
+        end
+        if used_definition.raw_comment && used_definition.raw_comment.length > 0
+          f.puts "\t\tcomment = #{used_definition.raw_comment}"
+        end
+        write_value(used_definition, lang, f)
+      end
+    end
+
+    def process_value_with_reference(definition, value, lang, f, section)
+      referenced_key = value.sub(/^@string\//, '')
+      referenced_definition = section.definitions.find { |defn| defn.key == referenced_key }
+      if referenced_definition.nil?
+        return definition # Return the current definition if referenced_definition is nil
+      else
+        value = get_value(referenced_definition, lang, f)
+        if value != nil && value.include?("@string/")
+          return process_value_with_reference(referenced_definition, value, lang, f, section)
+        else
+          return referenced_definition
+        end
+      end
+    end
+
     public
 
     def initialize
@@ -187,25 +228,7 @@ module Twine
 
           section.definitions.each do |definition|
             f.puts "\t[#{definition.key}]"
-
-            value = write_value(definition, dev_lang, f)
-            if !value && !definition.reference_key
-              Twine::stdout.puts "WARNING: #{definition.key} does not exist in developer language '#{dev_lang}'"
-            end
-            
-            if definition.reference_key
-              f.puts "\t\tref = #{definition.reference_key}"
-            end
-            if definition.tags && definition.tags.length > 0
-              tag_str = definition.tags.join(',')
-              f.puts "\t\ttags = #{tag_str}"
-            end
-            if definition.raw_comment and definition.raw_comment.length > 0
-              f.puts "\t\tcomment = #{definition.raw_comment}"
-            end
-            @language_codes[1..-1].each do |lang|
-              write_value(definition, lang, f)
-            end
+            write_value_for_lang(definition, f, section, definition)
           end
         end
       end
@@ -214,7 +237,14 @@ module Twine
     private
 
     def write_value(definition, language, file)
-      value = definition.translations[language]
+      begin
+        value = definition.translations[language]
+      rescue => e
+        # Log the error message
+        puts "AAA: #{e.message}"
+        value = nil
+      end
+
       return nil unless value
 
       if value[0] == ' ' || value[-1] == ' ' || (value[0] == '`' && value[-1] == '`')
@@ -222,6 +252,24 @@ module Twine
       end
 
       file.puts "\t\t#{language} = #{value}"
+      return value
+    end
+
+    def get_value(definition, language, file)
+      begin
+        value = definition.translations[language]
+      rescue => e
+        # Log the error message
+        puts "AAA: #{e.message}"
+        value = nil
+      end
+
+      return nil unless value
+
+      if value[0] == ' ' || value[-1] == ' ' || (value[0] == '`' && value[-1] == '`')
+        value = '`' + value + '`'
+      end
+
       return value
     end
 

@@ -188,7 +188,10 @@ module Twine
       end
 
       Dir.glob(File.join(@options[:input_path], "**/*")) do |item|
-        if File.file?(item) && item =~ /\/values(?:-[a-z]{2})?\/.*\.xml$/ && item !~ %r{\/build\/}
+        if File.file?(item) &&
+          item =~ /\/values(?:-[a-z]{2})?\/.*\.xml$/ &&
+          item !~ %r{\/build\/} &&
+          !item.include?("donottranslate.xml")
           begin
             read_localization_file(item)
           rescue Twine::Error => e

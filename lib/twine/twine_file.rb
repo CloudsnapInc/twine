@@ -237,14 +237,7 @@ module Twine
     private
 
     def write_value(definition, language, file)
-      begin
-        value = definition.translations[language]
-      rescue => e
-        # Log the error message
-        puts "AAA: #{e.message}"
-        value = nil
-      end
-
+      value = definition.translations[language]
       return nil unless value
 
       if value[0] == ' ' || value[-1] == ' ' || (value[0] == '`' && value[-1] == '`')
@@ -256,14 +249,7 @@ module Twine
     end
 
     def get_value(definition, language, file)
-      begin
-        value = definition.translations[language]
-      rescue => e
-        # Log the error message
-        puts "AAA: #{e.message}"
-        value = nil
-      end
-
+      value = definition.translations[language]
       return nil unless value
 
       if value[0] == ' ' || value[-1] == ' ' || (value[0] == '`' && value[-1] == '`')

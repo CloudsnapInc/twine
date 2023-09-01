@@ -38,7 +38,7 @@ module Twine
             value = value_match[1].gsub(/"\n"/, '').gsub('\\"', '"')
           end
           if key and key.length > 0 and value and value.length > 0
-            set_translation_for_key(key, lang, value)
+            set_translation_for_key(key, lang, value, false)
             if comment and comment.length > 0 and !comment.start_with?("SECTION:")
               set_comment_for_key(key, comment)
             end

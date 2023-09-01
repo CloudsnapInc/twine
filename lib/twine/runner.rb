@@ -14,6 +14,7 @@ module Twine
     end
 
     def self.run(args)
+      #puts "Runner: run #{args}"
       options = CLI.parse(args)
 
       return unless options
@@ -49,6 +50,7 @@ module Twine
     end
 
     def write_twine_data(path)
+      #puts "Runner: write_twine_data #{path}"
       if @options[:developer_language]
         @twine_file.set_developer_language_code(@options[:developer_language])
       end
@@ -56,6 +58,7 @@ module Twine
     end
 
     def generate_localization_file
+      #puts "Runner: generate_localization_file"
       validate_twine_file if @options[:validate]
 
       lang = nil
@@ -70,6 +73,7 @@ module Twine
     end
 
     def generate_all_localization_files
+      #puts "Runner: generate_all_localization_files"
       validate_twine_file if @options[:validate]
 
       if !File.directory?(@options[:output_path])
@@ -322,6 +326,7 @@ module Twine
     end
 
     def read_localization_file(path, lang = nil)
+      #puts "Runner: read_localization_file #{path}"
       unless File.file?(path)
         raise Twine::Error.new("File does not exist: #{path}")
       end
@@ -337,6 +342,7 @@ module Twine
     end
 
     def prepare_read_write(path, lang)
+      #puts "Runner: prepare_read_write #{path} - #{lang}"
       if @options[:format]
         formatter = formatter_for_format(@options[:format])
       else

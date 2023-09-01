@@ -21,12 +21,14 @@ module Twine
       end
 
       def process(language)
+        #puts "OutputProcessor: process #{language}"
         result = TwineFile.new
 
         result.language_codes.concat @twine_file.language_codes
         @twine_file.sections.each do |section|
           new_section = TwineSection.new section.name
 
+          # Iterating Through Definitions:
           section.definitions.each do |definition|
             next unless definition.matches_tags?(@options[:tags], @options[:untagged])
 
@@ -40,8 +42,21 @@ module Twine
 
             next unless value
 
+            # If translation is found - create new definition
             new_definition = definition.dup
             new_definition.translations[language] = value
+#             puts "---- new definition"
+#             puts "New Definition for Language #{language}:"
+#             puts "Key: #{new_definition.key}"
+#             puts "Translations: #{new_definition.translations}"
+
+            if definition.is_plural?
+              # If definition is plural, but no translation found -> create
+              # Then check 'other' key
+              if !(new_definition.plural_translations[language] ||= {}).key? 'other'
+                new_definition.plural_translations[language]['other'] = value
+              end
+            end
 
             new_section.definitions << new_definition
             result.definitions_by_key[new_definition.key] = new_definition

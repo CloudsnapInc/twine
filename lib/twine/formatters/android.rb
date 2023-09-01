@@ -7,6 +7,15 @@ module Twine
     class Android < Abstract
       include Twine::Placeholders
 
+      SUPPORTS_PLURAL = true
+      LANG_CODES = Hash[
+        'zh' => 'zh-Hans',
+        'zh-CN' => 'zh-Hans',
+        'zh-HK' => 'zh-Hant',
+        'en-GB' => 'en-GB',
+        'in' => 'id'
+      ]
+
       def format_name
         'android'
       end
@@ -33,11 +42,25 @@ module Twine
             # see http://developer.android.com/guide/topics/resources/providing-resources.html#AlternativeResources
             match = /^values-([a-z]{2}(-r[a-z]{2})?)$/i.match(segment)
 
-            return match[1].sub('-r', '-') if match
+            if match
+              lang = match[1].sub('-r', '-')
+              return LANG_CODES.fetch(lang, lang)
+            end
           end
         end
 
         return super
+      end
+
+      def should_include_definition(definition, lang)
+        # puts "should_include_definition #{!definition.is_plural? && super}"
+        return true
+      end
+
+      def format_plural_keys(key, plural_hash)
+        result = "\t<plurals name=\"#{key}\">\n"
+        result += plural_hash.map{|quantity,value| "\t#{' ' * 2}<item quantity=\"#{quantity}\">#{value}</item>"}.join("\n")
+        result += "\n\t</plurals>"
       end
 
       def output_path_for_language(lang)
@@ -48,14 +71,32 @@ module Twine
         end
       end
 
-      def set_translation_for_key(key, lang, value)
-        value = CGI.unescapeHTML(value)
-        value.gsub!('\\\'', '\'')
-        value.gsub!('\\"', '"')
-        value = convert_placeholders_from_android_to_twine(value)
-        value.gsub!('\@', '@')
-        value.gsub!(/(\\u0020)*|(\\u0020)*\z/) { |spaces| ' ' * (spaces.length / 6) }
-        super(key, lang, value)
+      def set_translation_for_key(key, lang, value, is_plural)
+        if is_plural
+          # Handle the case when is_plural is true (value is a Hash)
+          updated_value = {}
+          value.each do |quantity, text|
+            text = CGI.unescapeHTML(text)
+            text.gsub!('\\\'', '\'')
+            text.gsub!('\\"', '"')
+            text.gsub("\n", "\\n")
+            text = convert_placeholders_from_android_to_twine(text) # Apply the conversion
+            text.gsub!('\@', '@')
+            text.gsub!(/(\\u0020)*|(\\u0020)*\z/) { |spaces| ' ' * (spaces.length / 6) }
+            updated_value[quantity] = text # Replace the old value with the converted one
+          end
+          super(key, lang, updated_value, is_plural)
+        else
+          # Handle the case when is_plural is false (value is a String)
+          value = CGI.unescapeHTML(value)
+          value.gsub!('\\\'', '\'')
+          value.gsub!('\\"', '"')
+          value.gsub("\n", "\\n")
+          value = convert_placeholders_from_android_to_twine(value)
+          value.gsub!('\@', '@')
+          value.gsub!(/(\\u0020)*|(\\u0020)*\z/) { |spaces| ' ' * (spaces.length / 6) }
+          super(key, lang, value, is_plural)
+        end
       end
 
       def read(io, lang)
@@ -68,14 +109,29 @@ module Twine
             content.gsub!(/[\s]+/, ' ')
             comment = content if content.length > 0 and not content.start_with?("SECTION:")
           elsif child.is_a? REXML::Element
-            next unless child.name == 'string'
+            next unless child.name == 'string' || 'plurals'
 
             key = child.attributes['name']
 
-            content = child.children.map(&:to_s).join
-            set_translation_for_key(key, lang, content)
-            set_comment_for_key(key, comment) if comment
+            if child.name == 'string'
+              content = child.children.map(&:to_s).join
+              set_translation_for_key(key, lang, content, false)
+              set_comment_for_key(key, comment) if comment
+            elsif child.name == 'plurals'
+              plural_values = {} # Create a map to store plurals quantity to value
 
+              child.children.each do |item|
+                if item.is_a? REXML::Element
+                  item.children.each_with_index do |text, index|
+                    quantity = item.attributes["quantity"] # zero, one, other, etc.
+                    value = text.to_s
+                    plural_values[quantity] = value # Store the quantity to value mapping
+                  end
+                end
+              end
+
+              set_translation_for_key(key, lang, plural_values, true) # Pass the map as content
+            end
             comment = nil
           end 
         end

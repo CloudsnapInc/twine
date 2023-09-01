@@ -14,10 +14,15 @@ module Twine
       end
 
       def determine_language_given_path(path)
-        match = /^.+-([^-]{2})\.json$/.match File.basename(path)
-        return match[1] if match
+        path_arr = path.split(File::SEPARATOR)
+        path_arr.each do |segment|
+          match = /^(.+)\.json$/.match(segment)
+          if match
+            return match[1]
+          end
+        end
 
-        return super
+        return
       end
 
       def set_translation_for_key_recursive(key, lang, value)
@@ -26,7 +31,7 @@ module Twine
             set_translation_for_key_recursive(key+"."+key2, lang, value2)
           end
         else
-          set_translation_for_key(key, lang, value)
+          set_translation_for_key(key, lang, value, false)
         end
       end
 

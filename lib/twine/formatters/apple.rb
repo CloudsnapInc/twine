@@ -33,6 +33,10 @@ module Twine
         return super
       end
 
+      def should_include_definition(definition, lang)
+        return !definition.is_plural? && super
+      end
+
       def output_path_for_language(lang)
         "#{lang}.lproj"
       end
@@ -48,7 +52,7 @@ module Twine
             key.gsub!('\\"', '"')
             value = match[2]
             value.gsub!('\\"', '"')
-            set_translation_for_key(key, lang, value)
+            set_translation_for_key(key, lang, value, false)
             if last_comment
               set_comment_for_key(key, last_comment)
             end

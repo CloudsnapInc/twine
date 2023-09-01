@@ -75,7 +75,7 @@ module Twine
               else
                 value = ""
               end
-              set_translation_for_key(key, lang, value)
+              set_translation_for_key(key, lang, value, false)
               if comment and comment.length > 0 and !comment.start_with?("SECTION:")
                 set_comment_for_key(key, comment)
               end

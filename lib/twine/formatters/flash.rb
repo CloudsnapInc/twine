@@ -15,7 +15,7 @@ module Twine
         'resources.properties'
       end
 
-      def set_translation_for_key(key, lang, value)
+      def set_translation_for_key(key, lang, value, is_plural)
         value = convert_placeholders_from_flash_to_twine(value)
         super(key, lang, value)
       end
@@ -28,7 +28,7 @@ module Twine
             key = match[1]
             value = match[2].strip
 
-            set_translation_for_key(key, lang, value)
+            set_translation_for_key(key, lang, value, false)
             set_comment_for_key(key, last_comment) if last_comment
           end
           

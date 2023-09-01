@@ -1,17 +1,38 @@
 module Twine
   class TwineDefinition
+    PLURAL_KEYS = %w(zero one two few many other)
+
     attr_reader :key
     attr_accessor :comment
     attr_accessor :tags
     attr_reader :translations
+    attr_reader :plural_translations
+    attr_reader :is_plural
     attr_accessor :reference
     attr_accessor :reference_key
+    attr_accessor :is_plural # setter method
 
     def initialize(key)
       @key = key
       @comment = nil
       @tags = nil
       @translations = {}
+      @plural_translations = {}
+      @is_plural = false  # Initialize is_plural to false by default
+
+      #puts "TwineDefinition: initialize #{key}"
+    end
+
+    def plural_translation_for_lang(lang)
+      #puts "TwineDefinition: plural_translation_for_lang #{lang}"
+      if @plural_translations.has_key? lang
+        @plural_translations[lang].dup
+      end
+    end
+
+    def is_plural?
+      #puts "TwineDefinition: is_plural #{@key} #{!@plural_translations.empty?}"
+      !@plural_translations.empty?
     end
 
     def comment
@@ -24,6 +45,7 @@ module Twine
 
     # [['tag1', 'tag2'], ['~tag3']] == (tag1 OR tag2) AND (!tag3)
     def matches_tags?(tags, include_untagged)
+      #puts "TwineDefinition: matches_tags #{tags}"
       if tags == nil || tags.empty?  # The user did not specify any tags. Everything passes.
         return true
       elsif @tags == nil  # This definition has no tags -> check reference (if any)
@@ -44,6 +66,23 @@ module Twine
     end
 
     def translation_for_lang(lang)
+     # puts "TwineDefinition: translation_for_lang #{lang}"
+#       puts "======== Printing Translations: ========"
+#       @translations.each do |lang, translation|
+#         puts "#{lang}: #{translation}"
+#       end
+#
+#       puts "======== Printing Plural Translations: ========"
+#       @plural_translations.each do |lang, translation|
+#         puts "#{lang}: #{translation}"
+#       end
+
+      if @plural_translations.has_key?(lang)
+        plural_translation = @plural_translations[lang]
+       # puts "+++++ plural_translation #{plural_translation}"
+        return plural_translation if plural_translation
+      end
+
       translation = [lang].flatten.map { |l| @translations[l] }.compact.first
 
       translation = reference.translation_for_lang(lang) if translation.nil? && reference
@@ -101,6 +140,7 @@ module Twine
     end
 
     def process_value_with_reference(definition, value, lang, f, section)
+      #puts "TwineFile: process_value_with_reference #{definition} - #{value}"
       referenced_key = value.sub(/^@string\//, '')
       referenced_definition = section.definitions.find { |defn| defn.key == referenced_key }
       if referenced_definition.nil?
@@ -141,6 +181,7 @@ module Twine
     end
 
     def read(path)
+      #puts "TwineFile: read #{path}"
       if !File.file?(path)
         raise Twine::Error.new("File does not exist: #{path}")
       end
@@ -178,10 +219,11 @@ module Twine
               parsed = true
             end
           else
-            match = /^([^=]+)=(.*)$/.match(line)
+            match = /^([^:=]+)(?::([^=]+))?=(.*)$/.match(line)
             if match
               key = match[1].strip
-              value = match[2].strip
+              plural_key = match[2].to_s.strip
+              value = match[3].strip
               
               value = value[1..-2] if value[0] == '`' && value[-1] == '`'
 
@@ -196,7 +238,18 @@ module Twine
                 if !@language_codes.include? key
                   add_language_code(key)
                 end
-                current_definition.translations[key] = value
+                # Providing backward compatibility
+                # for formatters without plural support
+                if plural_key.empty? || plural_key == 'other'
+                  current_definition.translations[key] = value
+                end
+                if !plural_key.empty?
+                  if !TwineDefinition::PLURAL_KEYS.include? plural_key
+                    warn("Unknown plural key #{plural_key}")
+                    next
+                  end
+                  (current_definition.plural_translations[key] ||= {})[plural_key] = value
+                end
               end
               parsed = true
             end
@@ -216,6 +269,7 @@ module Twine
     end
 
     def write(path)
+      #puts "TwineFile: write #{path}"
       dev_lang = @language_codes[0]
 
       File.open(path, 'w:UTF-8') do |f|
@@ -237,18 +291,35 @@ module Twine
     private
 
     def write_value(definition, language, file)
-      value = definition.translations[language]
-      return nil unless value
+      #puts "TwineFile: write_value #{definition.key} - #{language}"
+      #puts "TwineFile: is_plural #{definition.is_plural}"
+      if definition.is_plural
+        # Handle plural translations
+        #puts "TwineFile: is_plural"
+        plural_translations = definition.plural_translations[language]
+        return nil unless plural_translations
 
-      if value[0] == ' ' || value[-1] == ' ' || (value[0] == '`' && value[-1] == '`')
-        value = '`' + value + '`'
+        plural_translations.each do |key, translation|
+          #puts "TwineFile: plural_translations: lang #{language}:#{key} = #{translation} "
+          file.puts "\t\t#{language}:#{key} = #{translation}"
+        end
+      else
+        # Handle non-plural translations
+        value = definition.translations[language]
+        return nil unless value
+
+        if value[0] == ' ' || value[-1] == ' ' || (value[0] == '`' && value[-1] == '`')
+          value = '`' + value + '`'
+        end
+
+        file.puts "\t\t#{language} = #{value}"
       end
 
-      file.puts "\t\t#{language} = #{value}"
       return value
     end
 
     def get_value(definition, language, file)
+      #puts "TwineFile: get_value #{definition} - #{language} - #{file}"
       value = definition.translations[language]
       return nil unless value
 

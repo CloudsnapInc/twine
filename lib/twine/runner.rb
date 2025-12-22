@@ -193,7 +193,7 @@ module Twine
 
       Dir.glob(File.join(@options[:input_path], "**/*")) do |item|
         if File.file?(item) &&
-          item =~ /\/values(?:-[a-z]{2})?\/.*\.xml$/ &&
+          item =~ /\/values(?:-[a-z]{2}(?:-(?:r)?[A-Z]{2})?)?\/.*\.xml$/ &&
           item !~ %r{\/build\/} &&
           !item.include?("donottranslate.xml")
           begin

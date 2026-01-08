@@ -58,11 +58,11 @@ module Twine
       end
 
       def format_plural_keys(key, plural_hash)
-        result = "\t<plurals name=\"#{key}\">\n"
-        result += plural_hash.map{|quantity,value| "\t#{' ' * 2}<item quantity=\"#{quantity}\">#{value}</item>"}.join("\n")
+        result = "\t<plurals name=\"#{format_key(key)}\">\n"
+        result += plural_hash.map{|quantity,value| "\t#{' ' * 2}<item quantity=\"#{quantity}\">#{format_value(value)}</item>"}.join("\n")
         result += "\n\t</plurals>"
       end
-
+      
       def output_path_for_language(lang)
         if lang == @twine_file.language_codes[0]
           "values"

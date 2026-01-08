@@ -194,7 +194,7 @@ module Twine
       end
 
       def format_key(key)
-        key
+        key.strip
       end
 
       def format_value(value)
